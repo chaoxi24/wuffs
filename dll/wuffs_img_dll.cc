@@ -36,6 +36,8 @@ WUFFS_IMG_API void wuffs_img_free(void* p);
 #define WUFFS_CONFIG__MODULE__AUX__BASE
 #define WUFFS_CONFIG__MODULE__AUX__IMAGE
 #define WUFFS_CONFIG__MODULE__BASE
+#define WUFFS_CONFIG__MODULE__ADLER32
+#define WUFFS_CONFIG__MODULE__CRC32
 #define WUFFS_CONFIG__MODULE__DEFLATE
 #define WUFFS_CONFIG__MODULE__GIF
 #define WUFFS_CONFIG__MODULE__JPEG
@@ -83,6 +85,7 @@ extern "C" WUFFS_IMG_API int wuffs_img_decode_bgra_premul(
   
   // Acquire the pixel buffer before local objects go out of scope.
   wuffs_base__pixel_buffer pixbuf = result.pixbuf;
+  (void)pixbuf;
 
   if (!result.pixbuf.pixcfg.is_valid()) {
     return -3; // invalid pixel buffer
@@ -152,7 +155,7 @@ static int decode_with_image_decoder(
   wuffs_base__io_buffer src = wuffs_base__ptr_u8__reader(
       (uint8_t*)data, (size_t)data_len, true /* closed */);
 
-  wuffs_base__image_config ic = ((wuffs_base__image_config){});
+  wuffs_base__image_config ic{};
   wuffs_base__status status =
       wuffs_base__image_decoder__decode_image_config(image_decoder, &ic, &src);
   if (status.repr) {
@@ -174,7 +177,7 @@ static int decode_with_image_decoder(
     return -5;
   }
 
-  wuffs_base__pixel_buffer pb = ((wuffs_base__pixel_buffer){});
+  wuffs_base__pixel_buffer pb{};
   status = wuffs_base__pixel_buffer__set_from_slice(
       &pb, &ic.pixcfg, wuffs_base__make_slice_u8(dst, dst_size));
   if (status.repr) {
@@ -184,7 +187,7 @@ static int decode_with_image_decoder(
 
   // Decode only the first frame.
   wuffs_base__status status_fc;
-  wuffs_base__frame_config fc = ((wuffs_base__frame_config){});
+  wuffs_base__frame_config fc{};
   status_fc =
       wuffs_base__image_decoder__decode_frame_config(image_decoder, &fc, &src);
   if (status_fc.repr && (status_fc.repr != wuffs_base__note__end_of_data)) {
