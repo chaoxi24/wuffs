@@ -31,6 +31,8 @@ jobs:
           New-Item -ItemType Directory -Force -Path artifact | Out-Null
           Copy-Item dll\wuffs_img.h artifact\wuffs_img.h -Force
           Get-ChildItem -Path . -Filter "wuffs_img.*" | Copy-Item -Destination artifact -Force
+          (Get-Item wuffs_img.lib -ErrorAction SilentlyContinue) | ForEach-Object { Copy-Item $_.FullName artifact -Force }
+          (Get-Item wuffs_img.pdb -ErrorAction SilentlyContinue) | ForEach-Object { Copy-Item $_.FullName artifact -Force }
 
       - name: Upload DLL artifact
         uses: actions/upload-artifact@v4

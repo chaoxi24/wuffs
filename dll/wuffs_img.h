@@ -52,6 +52,22 @@ WUFFS_IMG_API int wuffs_img_decode_gif_bgra(
     int* out_width,
     int* out_height);
 
+// Decode all frames of a GIF. Returns an array of frame buffers (each width*height*4 bytes, BGRA premul).
+// Optionally returns per-frame delays in milliseconds. Caller must free with wuffs_img_free_gif_frames.
+WUFFS_IMG_API int wuffs_img_decode_gif_bgra_frames(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t*** out_frame_ptrs,
+    uint32_t** out_delays_ms, // can be NULL
+    int* out_count,
+    int* out_width,
+    int* out_height);
+
+WUFFS_IMG_API void wuffs_img_free_gif_frames(
+    uint8_t** frame_ptrs,
+    uint32_t* delays_ms,
+    int count);
+
 #ifdef __cplusplus
 }  // extern "C"
 #endif

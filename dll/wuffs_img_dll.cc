@@ -280,3 +280,287 @@ extern "C" WUFFS_IMG_API int wuffs_img_decode_gif_bgra(
       wuffs_gif__decoder__upcast_as__wuffs_base__image_decoder(&gif), data,
       data_len, out_pixels, out_width, out_height);
 }
+
+// Decode a GIF into an array of BGRA_PREMUL frames and optional per-frame delays (milliseconds).
+extern "C" WUFFS_IMG_API int wuffs_img_decode_gif_bgra_frames(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t*** out_frame_ptrs,
+    uint32_t** out_delays_ms, // can be NULL if caller doesn't need delays
+    int* out_count,
+    int* out_width,
+    int* out_height) {
+  if (!data || (data_len == 0) || !out_frame_ptrs || !out_count || !out_width ||
+      !out_height) {
+    return -1;
+  }
+
+  *out_frame_ptrs = nullptr;
+  if (out_delays_ms) {
+    *out_delays_ms = nullptr;
+  }
+  *out_count = 0;
+  *out_width = 0;
+  *out_height = 0;
+
+  // Helper to reset an io buffer over the same data.
+  auto make_src = [&](wuffs_base__io_buffer* src) {
+    src->data.ptr = const_cast<uint8_t*>(data);
+    src->data.len = data_len;
+    src->meta.wi = data_len;
+    src->meta.ri = 0;
+    src->meta.pos = 0;
+    src->meta.closed = true;
+  };
+
+  // First pass: count frames.
+  int frame_count = 0;
+  {
+    wuffs_gif__decoder dec = {};
+    wuffs_base__status st = wuffs_gif__decoder__initialize(
+        &dec, sizeof dec, WUFFS_VERSION, WUFFS_INITIALIZE__DEFAULT_OPTIONS);
+    if (st.repr) {
+      return -2;
+    }
+    wuffs_base__io_buffer src{};
+    make_src(&src);
+
+    wuffs_base__image_config ic{};
+    st = wuffs_gif__decoder__decode_image_config(&dec, &ic, &src);
+    if (st.repr) {
+      return -3;
+    }
+
+    while (true) {
+      wuffs_base__frame_config fc{};
+      wuffs_base__status sfc = wuffs_gif__decoder__decode_frame_config(&dec, &fc, &src);
+      if (sfc.repr == wuffs_base__note__end_of_data) {
+        break;
+      }
+      if (sfc.repr) {
+        return -4;
+      }
+      frame_count++;
+    }
+  }
+
+  if (frame_count <= 0) {
+    return -5;
+  }
+
+  // Second pass: decode frames.
+  int ret_err = 0;
+  uint8_t** frames = (uint8_t**)calloc((size_t)frame_count, sizeof(uint8_t*));
+  uint32_t* delays = out_delays_ms ? (uint32_t*)calloc((size_t)frame_count, sizeof(uint32_t)) : nullptr;
+  if ((!frames) || (out_delays_ms && !delays)) {
+    free(frames);
+    free(delays);
+    return -6; // OOM
+  }
+
+  wuffs_gif__decoder dec = {};
+  wuffs_base__status st0 = wuffs_gif__decoder__initialize(
+      &dec, sizeof dec, WUFFS_VERSION, WUFFS_INITIALIZE__DEFAULT_OPTIONS);
+  if (st0.repr) {
+    free(frames);
+    free(delays);
+    return -7;
+  }
+
+  wuffs_base__io_buffer src2{};
+  make_src(&src2);
+
+  wuffs_base__image_config ic{};
+  st0 = wuffs_gif__decoder__decode_image_config(&dec, &ic, &src2);
+  if (st0.repr || !wuffs_base__image_config__is_valid(&ic)) {
+    free(frames);
+    free(delays);
+    return -8;
+  }
+  uint32_t width = wuffs_base__pixel_config__width(&ic.pixcfg);
+  uint32_t height = wuffs_base__pixel_config__height(&ic.pixcfg);
+
+  // Force BGRA_PREMUL destination.
+  wuffs_base__pixel_config__set(&ic.pixcfg, WUFFS_BASE__PIXEL_FORMAT__BGRA_PREMUL,
+                                WUFFS_BASE__PIXEL_SUBSAMPLING__NONE, width, height);
+
+  size_t stride = (size_t)width * 4u;
+  size_t dst_len = stride * (size_t)height;
+
+  uint8_t* curr = (uint8_t*)calloc(dst_len, 1);
+  uint8_t* prev = (uint8_t*)malloc(dst_len);
+  if (!curr || !prev) {
+    free(curr);
+    free(prev);
+    free(frames);
+    free(delays);
+    return -9;
+  }
+
+  // Work buffer
+  wuffs_base__range_ii_u64 wr = wuffs_gif__decoder__workbuf_len(&dec);
+  size_t work_len = (size_t)wr.min_incl;
+  uint8_t* work_mem = work_len ? (uint8_t*)malloc(work_len) : nullptr;
+  if (work_len && !work_mem) {
+    free(curr);
+    free(prev);
+    free(frames);
+    free(delays);
+    return -10;
+  }
+
+  // Pixel buffer bound to curr surface.
+  wuffs_base__pixel_buffer pb{};
+  wuffs_base__status sfs = wuffs_base__pixel_buffer__set_from_slice(
+      &pb, &ic.pixcfg, wuffs_base__make_slice_u8(curr, dst_len));
+  if (sfs.repr) {
+    free(work_mem);
+    free(curr);
+    free(prev);
+    free(frames);
+    free(delays);
+    return -11;
+  }
+
+  int out_index = 0;
+  const uint64_t FLICKS_PER_MILLISECOND = 705600ULL;
+
+  while (true) {
+    wuffs_base__frame_config fc{};
+    wuffs_base__status sfc = wuffs_gif__decoder__decode_frame_config(&dec, &fc, &src2);
+    if (sfc.repr == wuffs_base__note__end_of_data) {
+      break;
+    }
+    if (sfc.repr) {
+      ret_err = -12;
+      break;
+    }
+
+    if (wuffs_base__frame_config__index(&fc) == 0) {
+      // Initialize background for first frame.
+      wuffs_base__color_u32_argb_premul bg =
+          wuffs_base__frame_config__background_color(&fc);
+      uint8_t* p = curr;
+      size_t n = dst_len / sizeof(wuffs_base__color_u32_argb_premul);
+      for (size_t i = 0; i < n; i++) {
+        wuffs_base__poke_u32le__no_bounds_check(p, bg);
+        p += sizeof(wuffs_base__color_u32_argb_premul);
+      }
+    }
+
+    // Save previous if disposal=RESTORE_PREVIOUS
+    if (wuffs_base__frame_config__disposal(&fc) ==
+        WUFFS_BASE__ANIMATION_DISPOSAL__RESTORE_PREVIOUS) {
+      memcpy(prev, curr, dst_len);
+    }
+
+    // Blend mode
+    wuffs_base__pixel_blend blend =
+        wuffs_base__frame_config__overwrite_instead_of_blend(&fc)
+            ? WUFFS_BASE__PIXEL_BLEND__SRC
+            : WUFFS_BASE__PIXEL_BLEND__SRC_OVER;
+
+    // Decode frame pixels.
+    wuffs_base__status df = wuffs_gif__decoder__decode_frame(
+        &dec, &pb, &src2, blend, wuffs_base__make_slice_u8(work_mem, work_len),
+        NULL);
+    if (df.repr) {
+      ret_err = -13;
+      break;
+    }
+
+    // Snapshot current composited frame.
+    uint8_t* frame_copy = (uint8_t*)malloc(dst_len);
+    if (!frame_copy) {
+      ret_err = -14;
+      break;
+    }
+    memcpy(frame_copy, curr, dst_len);
+    frames[out_index] = frame_copy;
+
+    if (delays) {
+      wuffs_base__flicks d = wuffs_base__frame_config__duration(&fc);
+      uint64_t ms = (d <= 0) ? 0u : (uint64_t)(d / FLICKS_PER_MILLISECOND);
+      if (ms > 0xFFFFFFFFULL) {
+        ms = 0xFFFFFFFFULL;
+      }
+      delays[out_index] = (uint32_t)ms;
+    }
+
+    out_index++;
+
+    // Apply disposal after presenting frame.
+    switch (wuffs_base__frame_config__disposal(&fc)) {
+      case WUFFS_BASE__ANIMATION_DISPOSAL__RESTORE_BACKGROUND: {
+        wuffs_base__rect_ie_u32 bounds = wuffs_base__frame_config__bounds(&fc);
+        wuffs_base__color_u32_argb_premul bg =
+            wuffs_base__frame_config__background_color(&fc);
+        // Fill bounds region with background color.
+        for (uint32_t y = bounds.min_incl_y; y < bounds.max_excl_y; y++) {
+          uint8_t* row = curr + (size_t)y * stride + (size_t)bounds.min_incl_x * 4u;
+          for (uint32_t x = bounds.min_incl_x; x < bounds.max_excl_x; x++) {
+            wuffs_base__poke_u32le__no_bounds_check(row, bg);
+            row += 4;
+          }
+        }
+        break;
+      }
+      case WUFFS_BASE__ANIMATION_DISPOSAL__RESTORE_PREVIOUS: {
+        // Swap curr and prev, and rebind pixel buffer to new curr.
+        uint8_t* swap = curr;
+        curr = prev;
+        prev = swap;
+        wuffs_base__status sfs2 = wuffs_base__pixel_buffer__set_from_slice(
+            &pb, &ic.pixcfg, wuffs_base__make_slice_u8(curr, dst_len));
+        if (sfs2.repr) {
+          ret_err = -15;
+        }
+        break;
+      }
+      default:
+        break;
+    }
+    if (ret_err) {
+      break;
+    }
+  }
+
+  free(work_mem);
+  free(prev);
+  free(curr);
+
+  if (ret_err) {
+    for (int i = 0; i < frame_count; i++) {
+      free(frames[i]);
+    }
+    free(frames);
+    free(delays);
+    return ret_err;
+  }
+
+  *out_frame_ptrs = frames;
+  if (out_delays_ms) {
+    *out_delays_ms = delays;
+  } else {
+    free(delays);
+  }
+  *out_count = frame_count;
+  *out_width = (int)width;
+  *out_height = (int)height;
+  return 0;
+}
+
+extern "C" WUFFS_IMG_API void wuffs_img_free_gif_frames(
+    uint8_t** frame_ptrs,
+    uint32_t* delays_ms,
+    int count) {
+  if (frame_ptrs) {
+    for (int i = 0; i < count; i++) {
+      free(frame_ptrs[i]);
+    }
+    free(frame_ptrs);
+  }
+  if (delays_ms) {
+    free(delays_ms);
+  }
+}
