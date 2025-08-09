@@ -650,3 +650,105 @@ extern "C" WUFFS_IMG_API void wuffs_img_free_gif_frames(
     free(delays_ms);
   }
 }
+
+// ---------------- Probe (get width/height without decoding pixels) ----------------
+
+static int probe_with_decoder(wuffs_base__image_decoder* image_decoder,
+                              const uint8_t* data,
+                              size_t data_len,
+                              int* out_width,
+                              int* out_height) {
+  if (!data || (data_len == 0) || !out_width || !out_height) {
+    return -1;
+  }
+  wuffs_base__io_buffer src = wuffs_base__ptr_u8__reader(
+      (uint8_t*)data, (size_t)data_len, true /* closed */);
+  wuffs_base__image_config ic{};
+  wuffs_base__status st =
+      wuffs_base__image_decoder__decode_image_config(image_decoder, &ic, &src);
+  if (st.repr || !wuffs_base__image_config__is_valid(&ic)) {
+    return -2;
+  }
+  *out_width = (int)wuffs_base__pixel_config__width(&ic.pixcfg);
+  *out_height = (int)wuffs_base__pixel_config__height(&ic.pixcfg);
+  return 0;
+}
+
+extern "C" WUFFS_IMG_API int wuffs_img_probe_jpeg(const uint8_t* data,
+                                                   size_t data_len,
+                                                   int* out_width,
+                                                   int* out_height) {
+  wuffs_jpeg__decoder dec = {};
+  wuffs_base__status s = wuffs_jpeg__decoder__initialize(
+      &dec, sizeof dec, WUFFS_VERSION, WUFFS_INITIALIZE__DEFAULT_OPTIONS);
+  if (s.repr) {
+    return -10;
+  }
+  return probe_with_decoder(
+      wuffs_jpeg__decoder__upcast_as__wuffs_base__image_decoder(&dec), data,
+      data_len, out_width, out_height);
+}
+
+extern "C" WUFFS_IMG_API int wuffs_img_probe_png(const uint8_t* data,
+                                                  size_t data_len,
+                                                  int* out_width,
+                                                  int* out_height) {
+  wuffs_png__decoder dec = {};
+  wuffs_base__status s = wuffs_png__decoder__initialize(
+      &dec, sizeof dec, WUFFS_VERSION, WUFFS_INITIALIZE__DEFAULT_OPTIONS);
+  if (s.repr) {
+    return -10;
+  }
+  return probe_with_decoder(
+      wuffs_png__decoder__upcast_as__wuffs_base__image_decoder(&dec), data,
+      data_len, out_width, out_height);
+}
+
+extern "C" WUFFS_IMG_API int wuffs_img_probe_gif(const uint8_t* data,
+                                                  size_t data_len,
+                                                  int* out_width,
+                                                  int* out_height) {
+  wuffs_gif__decoder dec = {};
+  wuffs_base__status s = wuffs_gif__decoder__initialize(
+      &dec, sizeof dec, WUFFS_VERSION, WUFFS_INITIALIZE__DEFAULT_OPTIONS);
+  if (s.repr) {
+    return -10;
+  }
+  return probe_with_decoder(
+      wuffs_gif__decoder__upcast_as__wuffs_base__image_decoder(&dec), data,
+      data_len, out_width, out_height);
+}
+
+static inline bool has_jpeg_magic(const uint8_t* p, size_t n) {
+  return (n >= 3) && (p[0] == 0xFF) && (p[1] == 0xD8) && (p[2] == 0xFF);
+}
+static inline bool has_png_magic(const uint8_t* p, size_t n) {
+  static const uint8_t sig[8] = {0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
+  return (n >= 8) && (memcmp(p, sig, 8) == 0);
+}
+static inline bool has_gif_magic(const uint8_t* p, size_t n) {
+  return (n >= 6) && (!memcmp(p, "GIF87a", 6) || !memcmp(p, "GIF89a", 6));
+}
+
+extern "C" WUFFS_IMG_API int wuffs_img_probe(const uint8_t* data,
+                                              size_t data_len,
+                                              int* out_width,
+                                              int* out_height) {
+  if (!data || (data_len == 0) || !out_width || !out_height) {
+    return -1;
+  }
+  const uint8_t* p = data;
+  size_t n = data_len;
+  if (has_png_magic(p, n)) {
+    return wuffs_img_probe_png(data, data_len, out_width, out_height);
+  } else if (has_jpeg_magic(p, n)) {
+    return wuffs_img_probe_jpeg(data, data_len, out_width, out_height);
+  } else if (has_gif_magic(p, n)) {
+    return wuffs_img_probe_gif(data, data_len, out_width, out_height);
+  }
+  // Fallback: try in order.
+  if (wuffs_img_probe_png(data, data_len, out_width, out_height) == 0) return 0;
+  if (wuffs_img_probe_jpeg(data, data_len, out_width, out_height) == 0) return 0;
+  if (wuffs_img_probe_gif(data, data_len, out_width, out_height) == 0) return 0;
+  return -2;
+}
