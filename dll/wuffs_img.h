@@ -25,6 +25,13 @@ WUFFS_IMG_API int wuffs_img_decode_bgra_premul(
     uint8_t** out_pixels,
     int* out_width,
     int* out_height);
+// Auto-detect decode into RGBA (allocates; free with wuffs_img_free)
+WUFFS_IMG_API int wuffs_img_decode_rgba_premul(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t** out_pixels,
+    int* out_width,
+    int* out_height);
 
 // Free memory allocated by the library (malloc-based APIs)
 WUFFS_IMG_API void wuffs_img_free(void* p);
@@ -49,6 +56,19 @@ WUFFS_IMG_API int wuffs_img_decode_jpeg_bgra_into(
     size_t dst_stride,
     int* out_width,
     int* out_height);
+WUFFS_IMG_API int wuffs_img_decode_jpeg_rgba(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t** out_pixels,
+    int* out_width,
+    int* out_height);
+WUFFS_IMG_API int wuffs_img_decode_jpeg_rgba_into(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t* dst_pixels,
+    size_t dst_stride,
+    int* out_width,
+    int* out_height);
 
 // PNG
 WUFFS_IMG_API int wuffs_img_decode_png_bgra(
@@ -58,6 +78,19 @@ WUFFS_IMG_API int wuffs_img_decode_png_bgra(
     int* out_width,
     int* out_height);
 WUFFS_IMG_API int wuffs_img_decode_png_bgra_into(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t* dst_pixels,
+    size_t dst_stride,
+    int* out_width,
+    int* out_height);
+WUFFS_IMG_API int wuffs_img_decode_png_rgba(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t** out_pixels,
+    int* out_width,
+    int* out_height);
+WUFFS_IMG_API int wuffs_img_decode_png_rgba_into(
     const uint8_t* data,
     size_t data_len,
     uint8_t* dst_pixels,
@@ -79,9 +112,30 @@ WUFFS_IMG_API int wuffs_img_decode_gif_bgra_into(
     size_t dst_stride,
     int* out_width,
     int* out_height);
+WUFFS_IMG_API int wuffs_img_decode_gif_rgba(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t** out_pixels,
+    int* out_width,
+    int* out_height);
+WUFFS_IMG_API int wuffs_img_decode_gif_rgba_into(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t* dst_pixels,
+    size_t dst_stride,
+    int* out_width,
+    int* out_height);
 
 // GIF frames (allocates one buffer per frame; free with wuffs_img_free_gif_frames)
 WUFFS_IMG_API int wuffs_img_decode_gif_bgra_frames(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t*** out_frame_ptrs,
+    uint32_t** out_delays_ms, // can be NULL
+    int* out_count,
+    int* out_width,
+    int* out_height);
+WUFFS_IMG_API int wuffs_img_decode_gif_rgba_frames(
     const uint8_t* data,
     size_t data_len,
     uint8_t*** out_frame_ptrs,
@@ -108,6 +162,19 @@ WUFFS_IMG_API int wuffs_img_decode_bmp_bgra_into(
     size_t dst_stride,
     int* out_width,
     int* out_height);
+WUFFS_IMG_API int wuffs_img_decode_bmp_rgba(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t** out_pixels,
+    int* out_width,
+    int* out_height);
+WUFFS_IMG_API int wuffs_img_decode_bmp_rgba_into(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t* dst_pixels,
+    size_t dst_stride,
+    int* out_width,
+    int* out_height);
 
 // WEBP (still frames)
 WUFFS_IMG_API int wuffs_img_decode_webp_bgra(
@@ -117,6 +184,19 @@ WUFFS_IMG_API int wuffs_img_decode_webp_bgra(
     int* out_width,
     int* out_height);
 WUFFS_IMG_API int wuffs_img_decode_webp_bgra_into(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t* dst_pixels,
+    size_t dst_stride,
+    int* out_width,
+    int* out_height);
+WUFFS_IMG_API int wuffs_img_decode_webp_rgba(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t** out_pixels,
+    int* out_width,
+    int* out_height);
+WUFFS_IMG_API int wuffs_img_decode_webp_rgba_into(
     const uint8_t* data,
     size_t data_len,
     uint8_t* dst_pixels,
@@ -133,14 +213,6 @@ WUFFS_IMG_API int wuffs_img_probe_png(const uint8_t* data, size_t data_len,
                                       int* out_width, int* out_height);
 WUFFS_IMG_API int wuffs_img_probe_gif(const uint8_t* data, size_t data_len,
                                       int* out_width, int* out_height);
-
-// Windows Heap-based decode (library allocates via HeapAlloc, caller frees via HeapFree)
-// All return pointer to heap memory and set out_size = width*height*4 on success; negative on failure.
-WUFFS_IMG_API intptr_t wuffs_heap_decode_jpeg_bgra(const uint8_t* data, size_t data_len, int* out_width, int* out_height, size_t* out_size);
-WUFFS_IMG_API intptr_t wuffs_heap_decode_png_bgra(const uint8_t* data, size_t data_len, int* out_width, int* out_height, size_t* out_size);
-WUFFS_IMG_API intptr_t wuffs_heap_decode_gif_bgra(const uint8_t* data, size_t data_len, int* out_width, int* out_height, size_t* out_size);
-WUFFS_IMG_API intptr_t wuffs_heap_decode_bmp_bgra(const uint8_t* data, size_t data_len, int* out_width, int* out_height, size_t* out_size);
-WUFFS_IMG_API intptr_t wuffs_heap_decode_webp_bgra(const uint8_t* data, size_t data_len, int* out_width, int* out_height, size_t* out_size);
 
 #ifdef __cplusplus
 }  // extern "C"
