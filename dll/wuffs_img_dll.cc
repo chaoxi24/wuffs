@@ -2,6 +2,10 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
 // Ensure C linkage for exported functions when compiled as C++
 #ifdef __cplusplus
@@ -42,6 +46,8 @@ WUFFS_IMG_API void wuffs_img_free(void* p);
 #define WUFFS_CONFIG__MODULE__GIF
 #define WUFFS_CONFIG__MODULE__JPEG
 #define WUFFS_CONFIG__MODULE__PNG
+#define WUFFS_CONFIG__MODULE__BMP
+#define WUFFS_CONFIG__MODULE__WEBP
 #define WUFFS_CONFIG__MODULE__ZLIB
 
 #define WUFFS_CONFIG__DST_PIXEL_FORMAT__ENABLE_ALLOWLIST
@@ -901,3 +907,184 @@ extern "C" WUFFS_IMG_API int wuffs_img_probe(const uint8_t* data,
   if (wuffs_img_probe_gif(data, data_len, out_width, out_height) == 0) return 0;
   return -2;
 }
+
+// BMP decode
+extern "C" WUFFS_IMG_API int wuffs_img_decode_bmp_bgra(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t** out_pixels,
+    int* out_width,
+    int* out_height) {
+  wuffs_bmp__decoder dec = {};
+  wuffs_base__status s = wuffs_bmp__decoder__initialize(
+      &dec, sizeof dec, WUFFS_VERSION, WUFFS_INITIALIZE__DEFAULT_OPTIONS);
+  if (s.repr) return -10;
+  return decode_with_image_decoder(
+      wuffs_bmp__decoder__upcast_as__wuffs_base__image_decoder(&dec), data,
+      data_len, out_pixels, out_width, out_height);
+}
+
+extern "C" WUFFS_IMG_API int wuffs_img_decode_bmp_bgra_into(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t* dst_pixels,
+    size_t dst_stride,
+    int* out_width,
+    int* out_height) {
+  if (!data || !dst_pixels || !out_width || !out_height || data_len == 0 ||
+      dst_stride == 0) {
+    return -1;
+  }
+  wuffs_bmp__decoder dec = {};
+  wuffs_base__status s = wuffs_bmp__decoder__initialize(
+      &dec, sizeof dec, WUFFS_VERSION, WUFFS_INITIALIZE__DEFAULT_OPTIONS);
+  if (s.repr) return -10;
+
+  wuffs_base__io_buffer src = wuffs_base__ptr_u8__reader(
+      (uint8_t*)data, (size_t)data_len, true);
+
+  wuffs_base__image_config ic{};
+  s = wuffs_bmp__decoder__decode_image_config(&dec, &ic, &src);
+  if (s.repr) return -2;
+  uint32_t width = wuffs_base__pixel_config__width(&ic.pixcfg);
+  uint32_t height = wuffs_base__pixel_config__height(&ic.pixcfg);
+  wuffs_base__pixel_config__set(&ic.pixcfg, WUFFS_BASE__PIXEL_FORMAT__BGRA_PREMUL,
+                                WUFFS_BASE__PIXEL_SUBSAMPLING__NONE, width, height);
+  wuffs_base__pixel_buffer pb{};
+  wuffs_base__status spb = wuffs_base__pixel_buffer__set_interleaved(
+      &pb, &ic.pixcfg,
+      wuffs_base__make_table_u8(dst_pixels, (size_t)width * 4u, (size_t)height, dst_stride),
+      wuffs_base__empty_slice_u8());
+  if (spb.repr) return -3;
+
+  wuffs_base__frame_config fc{};
+  s = wuffs_bmp__decoder__decode_frame_config(&dec, &fc, &src);
+  if (s.repr && (s.repr != wuffs_base__note__end_of_data)) return -4;
+  wuffs_base__pixel_blend blend = WUFFS_BASE__PIXEL_BLEND__SRC;
+  wuffs_base__range_ii_u64 wr = wuffs_bmp__decoder__workbuf_len(&dec);
+  size_t work_len = (size_t)wr.min_incl;
+  uint8_t* work_mem = work_len ? (uint8_t*)malloc(work_len) : nullptr;
+  wuffs_base__status df = wuffs_bmp__decoder__decode_frame(
+      &dec, &pb, &src, blend, wuffs_base__make_slice_u8(work_mem, work_len), NULL);
+  if (work_mem) free(work_mem);
+  if (df.repr) return -5;
+  *out_width = (int)width;
+  *out_height = (int)height;
+  return 0;
+}
+
+// WEBP decode (still frames)
+extern "C" WUFFS_IMG_API int wuffs_img_decode_webp_bgra(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t** out_pixels,
+    int* out_width,
+    int* out_height) {
+  wuffs_webp__decoder dec = {};
+  wuffs_base__status s = wuffs_webp__decoder__initialize(
+      &dec, sizeof dec, WUFFS_VERSION, WUFFS_INITIALIZE__DEFAULT_OPTIONS);
+  if (s.repr) return -10;
+  return decode_with_image_decoder(
+      wuffs_webp__decoder__upcast_as__wuffs_base__image_decoder(&dec), data,
+      data_len, out_pixels, out_width, out_height);
+}
+
+extern "C" WUFFS_IMG_API int wuffs_img_decode_webp_bgra_into(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t* dst_pixels,
+    size_t dst_stride,
+    int* out_width,
+    int* out_height) {
+  if (!data || !dst_pixels || !out_width || !out_height || data_len == 0 ||
+      dst_stride == 0) {
+    return -1;
+  }
+  wuffs_webp__decoder dec = {};
+  wuffs_base__status s = wuffs_webp__decoder__initialize(
+      &dec, sizeof dec, WUFFS_VERSION, WUFFS_INITIALIZE__DEFAULT_OPTIONS);
+  if (s.repr) return -10;
+
+  wuffs_base__io_buffer src = wuffs_base__ptr_u8__reader(
+      (uint8_t*)data, (size_t)data_len, true);
+
+  wuffs_base__image_config ic{};
+  s = wuffs_webp__decoder__decode_image_config(&dec, &ic, &src);
+  if (s.repr) return -2;
+  uint32_t width = wuffs_base__pixel_config__width(&ic.pixcfg);
+  uint32_t height = wuffs_base__pixel_config__height(&ic.pixcfg);
+  wuffs_base__pixel_config__set(&ic.pixcfg, WUFFS_BASE__PIXEL_FORMAT__BGRA_PREMUL,
+                                WUFFS_BASE__PIXEL_SUBSAMPLING__NONE, width, height);
+  wuffs_base__pixel_buffer pb{};
+  wuffs_base__status spb = wuffs_base__pixel_buffer__set_interleaved(
+      &pb, &ic.pixcfg,
+      wuffs_base__make_table_u8(dst_pixels, (size_t)width * 4u, (size_t)height, dst_stride),
+      wuffs_base__empty_slice_u8());
+  if (spb.repr) return -3;
+
+  wuffs_base__frame_config fc{};
+  s = wuffs_webp__decoder__decode_frame_config(&dec, &fc, &src);
+  if (s.repr && (s.repr != wuffs_base__note__end_of_data)) return -4;
+  wuffs_base__pixel_blend blend = WUFFS_BASE__PIXEL_BLEND__SRC;
+  wuffs_base__range_ii_u64 wr = wuffs_webp__decoder__workbuf_len(&dec);
+  size_t work_len = (size_t)wr.min_incl;
+  uint8_t* work_mem = work_len ? (uint8_t*)malloc(work_len) : nullptr;
+  wuffs_base__status df = wuffs_webp__decoder__decode_frame(
+      &dec, &pb, &src, blend, wuffs_base__make_slice_u8(work_mem, work_len), NULL);
+  if (work_mem) free(work_mem);
+  if (df.repr) return -5;
+  *out_width = (int)width;
+  *out_height = (int)height;
+  return 0;
+}
+
+// ---------------- Windows Heap-based decoders ----------------
+#ifdef _WIN32
+static inline void* heap_alloc_bytes(size_t n) {
+  return (void*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, n);
+}
+static inline void heap_copy(void* dst, const void* src, size_t n) {
+  memcpy(dst, src, n);
+}
+
+static intptr_t heap_decode_common(
+    int (*fn)(const uint8_t*, size_t, uint8_t**, int*, int*),
+    const uint8_t* data, size_t data_len, int* out_width, int* out_height,
+    size_t* out_size) {
+  if (!data || !out_width || !out_height || !out_size) return -1;
+  uint8_t* tmp = nullptr;
+  int w = 0, h = 0;
+  int r = fn(data, data_len, &tmp, &w, &h);
+  if ((r != 0) || !tmp) return -2;
+  size_t bytes = (size_t)w * (size_t)h * 4u;
+  void* hp = heap_alloc_bytes(bytes);
+  if (!hp) { free(tmp); return -3; }
+  heap_copy(hp, tmp, bytes);
+  free(tmp);
+  *out_width = w;
+  *out_height = h;
+  *out_size = bytes;
+  return (intptr_t)hp;
+}
+
+extern "C" WUFFS_IMG_API intptr_t wuffs_heap_decode_jpeg_bgra(
+    const uint8_t* data, size_t data_len, int* out_width, int* out_height, size_t* out_size) {
+  return heap_decode_common(wuffs_img_decode_jpeg_bgra, data, data_len, out_width, out_height, out_size);
+}
+extern "C" WUFFS_IMG_API intptr_t wuffs_heap_decode_png_bgra(
+    const uint8_t* data, size_t data_len, int* out_width, int* out_height, size_t* out_size) {
+  return heap_decode_common(wuffs_img_decode_png_bgra, data, data_len, out_width, out_height, out_size);
+}
+extern "C" WUFFS_IMG_API intptr_t wuffs_heap_decode_gif_bgra(
+    const uint8_t* data, size_t data_len, int* out_width, int* out_height, size_t* out_size) {
+  return heap_decode_common(wuffs_img_decode_gif_bgra, data, data_len, out_width, out_height, out_size);
+}
+extern "C" WUFFS_IMG_API intptr_t wuffs_heap_decode_bmp_bgra(
+    const uint8_t* data, size_t data_len, int* out_width, int* out_height, size_t* out_size) {
+  return heap_decode_common(wuffs_img_decode_bmp_bgra, data, data_len, out_width, out_height, out_size);
+}
+extern "C" WUFFS_IMG_API intptr_t wuffs_heap_decode_webp_bgra(
+    const uint8_t* data, size_t data_len, int* out_width, int* out_height, size_t* out_size) {
+  return heap_decode_common(wuffs_img_decode_webp_bgra, data, data_len, out_width, out_height, out_size);
+}
+#endif
