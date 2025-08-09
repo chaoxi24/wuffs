@@ -38,6 +38,23 @@ WUFFS_IMG_API int wuffs_img_decode_jpeg_bgra(
     int* out_width,
     int* out_height);
 
+// Faster, lower-quality JPEG decode for speed-sensitive scenarios.
+WUFFS_IMG_API int wuffs_img_decode_jpeg_bgra_fast(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t** out_pixels,
+    int* out_width,
+    int* out_height);
+
+// Decode JPEG into a caller-provided BGRA buffer with stride.
+WUFFS_IMG_API int wuffs_img_decode_jpeg_bgra_into(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t* dst_pixels,
+    size_t dst_stride,
+    int* out_width,
+    int* out_height);
+
 WUFFS_IMG_API int wuffs_img_decode_png_bgra(
     const uint8_t* data,
     size_t data_len,

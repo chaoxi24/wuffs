@@ -18,12 +18,12 @@ jobs:
       - name: Build DLL (x64)
         shell: cmd
         run: >-
-          cl /nologo /LD /O2 /EHsc /std:c++17
+          cl /nologo /LD /O2 /EHsc /std:c++17 /DNDEBUG /arch:AVX2 /GL /Oi
           /DWUFFS_IMG_BUILD
           /I dll
           dll\wuffs_img_dll.cc
           /Fe:wuffs_img.dll
-          /link /DEFAULTLIB:advapi32
+          /link /LTCG /OPT:REF /OPT:ICF /DEFAULTLIB:advapi32
 
       - name: Collect artifacts
         shell: pwsh

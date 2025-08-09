@@ -247,6 +247,92 @@ extern "C" WUFFS_IMG_API int wuffs_img_decode_jpeg_bgra(
       data_len, out_pixels, out_width, out_height);
 }
 
+// Fast JPEG decode: lower quality (e.g. faster IDCT / upsampling) for speed.
+extern "C" WUFFS_IMG_API int wuffs_img_decode_jpeg_bgra_fast(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t** out_pixels,
+    int* out_width,
+    int* out_height) {
+  if (!data || data_len == 0 || !out_pixels || !out_width || !out_height) {
+    return -1;
+  }
+  wuffs_jpeg__decoder jpeg = {};
+  wuffs_base__status s = wuffs_jpeg__decoder__initialize(
+      &jpeg, sizeof jpeg, WUFFS_VERSION, WUFFS_INITIALIZE__DEFAULT_OPTIONS);
+  if (s.repr) {
+    return -10;
+  }
+  // Apply lower quality quirk for speed.
+  wuffs_jpeg__decoder__set_quirk(&jpeg, WUFFS_BASE__QUIRK_QUALITY,
+                                 WUFFS_BASE__QUIRK_QUALITY__VALUE__LOWER_QUALITY);
+  return decode_with_image_decoder(
+      wuffs_jpeg__decoder__upcast_as__wuffs_base__image_decoder(&jpeg), data,
+      data_len, out_pixels, out_width, out_height);
+}
+
+// Decode JPEG into a caller-provided BGRA_PREMUL buffer (stride in bytes).
+extern "C" WUFFS_IMG_API int wuffs_img_decode_jpeg_bgra_into(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t* dst_pixels,
+    size_t dst_stride,
+    int* out_width,
+    int* out_height) {
+  if (!data || data_len == 0 || !dst_pixels || dst_stride == 0 || !out_width ||
+      !out_height) {
+    return -1;
+  }
+  wuffs_jpeg__decoder dec = {};
+  wuffs_base__status s = wuffs_jpeg__decoder__initialize(
+      &dec, sizeof dec, WUFFS_VERSION, WUFFS_INITIALIZE__DEFAULT_OPTIONS);
+  if (s.repr) {
+    return -10;
+  }
+  wuffs_base__io_buffer src = wuffs_base__ptr_u8__reader(
+      (uint8_t*)data, (size_t)data_len, true);
+
+  wuffs_base__image_config ic{};
+  s = wuffs_jpeg__decoder__decode_image_config(&dec, &ic, &src);
+  if (s.repr) {
+    return -2;
+  }
+  uint32_t width = wuffs_base__pixel_config__width(&ic.pixcfg);
+  uint32_t height = wuffs_base__pixel_config__height(&ic.pixcfg);
+  wuffs_base__pixel_config__set(&ic.pixcfg, WUFFS_BASE__PIXEL_FORMAT__BGRA_PREMUL,
+                                WUFFS_BASE__PIXEL_SUBSAMPLING__NONE, width, height);
+  // Bind pixel buffer to caller memory (allows non-tight stride).
+  wuffs_base__pixel_buffer pb{};
+  wuffs_base__status spb = wuffs_base__pixel_buffer__set_interleaved(
+      &pb, &ic.pixcfg,
+      wuffs_base__make_table_u8(dst_pixels, (size_t)width * 4u, (size_t)height,
+                                dst_stride),
+      wuffs_base__empty_slice_u8());
+  if (spb.repr) {
+    return -3;
+  }
+  // Need frame_config first to pick blend and workbuf.
+  wuffs_base__frame_config fc{};
+  s = wuffs_jpeg__decoder__decode_frame_config(&dec, &fc, &src);
+  if (s.repr && (s.repr != wuffs_base__note__end_of_data)) {
+    return -4;
+  }
+  wuffs_base__pixel_blend blend = WUFFS_BASE__PIXEL_BLEND__SRC;
+  wuffs_base__range_ii_u64 wr = wuffs_jpeg__decoder__workbuf_len(&dec);
+  size_t work_len = (size_t)wr.min_incl;
+  uint8_t* work_mem = work_len ? (uint8_t*)malloc(work_len) : nullptr;
+  wuffs_base__status df = wuffs_jpeg__decoder__decode_frame(
+      &dec, &pb, &src, blend, wuffs_base__make_slice_u8(work_mem, work_len),
+      NULL);
+  if (work_mem) free(work_mem);
+  if (df.repr) {
+    return -5;
+  }
+  *out_width = (int)width;
+  *out_height = (int)height;
+  return 0;
+}
+
 extern "C" WUFFS_IMG_API int wuffs_img_decode_png_bgra(
     const uint8_t* data,
     size_t data_len,
