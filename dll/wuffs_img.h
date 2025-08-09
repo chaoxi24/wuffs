@@ -30,6 +30,28 @@ WUFFS_IMG_API int wuffs_img_decode_bgra_premul(
 
 WUFFS_IMG_API void wuffs_img_free(void* p);
 
+// Per-format decoders: force decoding via the specified codec.
+WUFFS_IMG_API int wuffs_img_decode_jpeg_bgra(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t** out_pixels,
+    int* out_width,
+    int* out_height);
+
+WUFFS_IMG_API int wuffs_img_decode_png_bgra(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t** out_pixels,
+    int* out_width,
+    int* out_height);
+
+WUFFS_IMG_API int wuffs_img_decode_gif_bgra(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t** out_pixels,
+    int* out_width,
+    int* out_height);
+
 #ifdef __cplusplus
 }  // extern "C"
 #endif

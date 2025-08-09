@@ -21,8 +21,10 @@ jobs:
         run: >-
           cl /nologo /LD /O2 /EHsc /std:c++17
           /DWUFFS_IMG_BUILD
+          /I dll
           dll\wuffs_img_dll.cc
           /Fe:wuffs_img.dll
+          /link /DEFAULTLIB:advapi32
 
       - name: Collect artifacts
         shell: pwsh
