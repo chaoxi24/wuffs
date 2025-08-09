@@ -62,10 +62,28 @@ WUFFS_IMG_API int wuffs_img_decode_png_bgra(
     int* out_width,
     int* out_height);
 
+// Decode PNG into caller-provided buffer.
+WUFFS_IMG_API int wuffs_img_decode_png_bgra_into(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t* dst_pixels,
+    size_t dst_stride,
+    int* out_width,
+    int* out_height);
+
 WUFFS_IMG_API int wuffs_img_decode_gif_bgra(
     const uint8_t* data,
     size_t data_len,
     uint8_t** out_pixels,
+    int* out_width,
+    int* out_height);
+
+// Decode first GIF frame into caller-provided buffer.
+WUFFS_IMG_API int wuffs_img_decode_gif_bgra_into(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t* dst_pixels,
+    size_t dst_stride,
     int* out_width,
     int* out_height);
 
