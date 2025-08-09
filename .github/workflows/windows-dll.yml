@@ -1,0 +1,37 @@
+name: build-windows-dll
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build DLL (x64)
+        shell: cmd
+        run: >-
+          cl /nologo /LD /O2 /EHsc /std:c++17
+          /DWUFFS_IMG_BUILD
+          dll\wuffs_img_dll.cc
+          /Fe:wuffs_img.dll
+
+      - name: Collect artifacts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifact | Out-Null
+          Get-ChildItem -Path . -Filter "wuffs_img.*" | Copy-Item -Destination artifact -Force
+
+      - name: Upload DLL artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wuffs_img-windows-x64
+          path: artifact/*
