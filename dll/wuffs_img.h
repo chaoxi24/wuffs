@@ -216,6 +216,20 @@ WUFFS_IMG_API int wuffs_img_probe_png(const uint8_t* data, size_t data_len,
 WUFFS_IMG_API int wuffs_img_probe_gif(const uint8_t* data, size_t data_len,
                                       int* out_width, int* out_height);
 
+// Unified auto-parse and decode to RGBA_PREMUL (allocates; free with wuffs_img_free)
+// Returns: 0 on success; 1 if special case (e.g. multi-frame GIF) so not decoded; negative on error
+WUFFS_IMG_API int wuffs_img_decode_auto_rgba_alloc(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t** out_pixels,
+    size_t* out_size,
+    int* out_width,
+    int* out_height,
+    char* out_ext,
+    size_t out_ext_len,
+    char* out_error,
+    size_t out_error_len);
+
 #ifdef __cplusplus
 }  // extern "C"
 #endif
