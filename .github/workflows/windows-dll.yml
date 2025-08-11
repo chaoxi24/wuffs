@@ -2,7 +2,11 @@ name: build-windows-dll
 
 on:
   push:
-    branches: [ main, master ]
+    branches:
+      - main
+      - master
+      - sync/**
+      - cursor/**
   pull_request:
   workflow_dispatch:
 
