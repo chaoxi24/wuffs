@@ -18,39 +18,203 @@ extern "C" {
   #define WUFFS_IMG_API
 #endif
 
-// Decodes an image (JPEG/PNG/GIF/WebP still) from memory into BGRA premultiplied
-// pixels. The output buffer is allocated with malloc and must be freed with
-// wuffs_img_free. Returns 0 on success; negative values on failure.
+// Auto-detect decode into BGRA (allocates; free with wuffs_img_free)
 WUFFS_IMG_API int wuffs_img_decode_bgra_premul(
     const uint8_t* data,
     size_t data_len,
     uint8_t** out_pixels,
     int* out_width,
     int* out_height);
+// Auto-detect decode into RGBA (allocates; free with wuffs_img_free)
+WUFFS_IMG_API int wuffs_img_decode_rgba_premul(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t** out_pixels,
+    int* out_width,
+    int* out_height);
 
+// Free memory allocated by the library (malloc-based APIs)
 WUFFS_IMG_API void wuffs_img_free(void* p);
 
-// Per-format decoders: force decoding via the specified codec.
+// JPEG
 WUFFS_IMG_API int wuffs_img_decode_jpeg_bgra(
     const uint8_t* data,
     size_t data_len,
     uint8_t** out_pixels,
     int* out_width,
     int* out_height);
+WUFFS_IMG_API int wuffs_img_decode_jpeg_bgra_fast(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t** out_pixels,
+    int* out_width,
+    int* out_height);
+WUFFS_IMG_API int wuffs_img_decode_jpeg_bgra_into(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t* dst_pixels,
+    size_t dst_stride,
+    int* out_width,
+    int* out_height);
+WUFFS_IMG_API int wuffs_img_decode_jpeg_rgba(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t** out_pixels,
+    int* out_width,
+    int* out_height);
+WUFFS_IMG_API int wuffs_img_decode_jpeg_rgba_into(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t* dst_pixels,
+    size_t dst_stride,
+    int* out_width,
+    int* out_height);
 
+// PNG
 WUFFS_IMG_API int wuffs_img_decode_png_bgra(
     const uint8_t* data,
     size_t data_len,
     uint8_t** out_pixels,
     int* out_width,
     int* out_height);
+WUFFS_IMG_API int wuffs_img_decode_png_bgra_into(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t* dst_pixels,
+    size_t dst_stride,
+    int* out_width,
+    int* out_height);
+WUFFS_IMG_API int wuffs_img_decode_png_rgba(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t** out_pixels,
+    int* out_width,
+    int* out_height);
+WUFFS_IMG_API int wuffs_img_decode_png_rgba_into(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t* dst_pixels,
+    size_t dst_stride,
+    int* out_width,
+    int* out_height);
 
+// GIF (still: first frame; animation: see frames API)
 WUFFS_IMG_API int wuffs_img_decode_gif_bgra(
     const uint8_t* data,
     size_t data_len,
     uint8_t** out_pixels,
     int* out_width,
     int* out_height);
+WUFFS_IMG_API int wuffs_img_decode_gif_bgra_into(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t* dst_pixels,
+    size_t dst_stride,
+    int* out_width,
+    int* out_height);
+WUFFS_IMG_API int wuffs_img_decode_gif_rgba(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t** out_pixels,
+    int* out_width,
+    int* out_height);
+WUFFS_IMG_API int wuffs_img_decode_gif_rgba_into(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t* dst_pixels,
+    size_t dst_stride,
+    int* out_width,
+    int* out_height);
+
+// GIF frames (allocates one buffer per frame; free with wuffs_img_free_gif_frames)
+WUFFS_IMG_API int wuffs_img_decode_gif_bgra_frames(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t*** out_frame_ptrs,
+    uint32_t** out_delays_ms, // can be NULL
+    int* out_count,
+    int* out_width,
+    int* out_height);
+WUFFS_IMG_API int wuffs_img_decode_gif_rgba_frames(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t*** out_frame_ptrs,
+    uint32_t** out_delays_ms, // can be NULL
+    int* out_count,
+    int* out_width,
+    int* out_height);
+WUFFS_IMG_API void wuffs_img_free_gif_frames(
+    uint8_t** frame_ptrs,
+    uint32_t* delays_ms,
+    int count);
+
+// BMP
+WUFFS_IMG_API int wuffs_img_decode_bmp_bgra(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t** out_pixels,
+    int* out_width,
+    int* out_height);
+WUFFS_IMG_API int wuffs_img_decode_bmp_bgra_into(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t* dst_pixels,
+    size_t dst_stride,
+    int* out_width,
+    int* out_height);
+WUFFS_IMG_API int wuffs_img_decode_bmp_rgba(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t** out_pixels,
+    int* out_width,
+    int* out_height);
+WUFFS_IMG_API int wuffs_img_decode_bmp_rgba_into(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t* dst_pixels,
+    size_t dst_stride,
+    int* out_width,
+    int* out_height);
+
+// WEBP (still frames)
+WUFFS_IMG_API int wuffs_img_decode_webp_bgra(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t** out_pixels,
+    int* out_width,
+    int* out_height);
+WUFFS_IMG_API int wuffs_img_decode_webp_bgra_into(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t* dst_pixels,
+    size_t dst_stride,
+    int* out_width,
+    int* out_height);
+WUFFS_IMG_API int wuffs_img_decode_webp_rgba(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t** out_pixels,
+    int* out_width,
+    int* out_height);
+WUFFS_IMG_API int wuffs_img_decode_webp_rgba_into(
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t* dst_pixels,
+    size_t dst_stride,
+    int* out_width,
+    int* out_height);
+
+// Probes (width/height only)
+WUFFS_IMG_API int wuffs_img_probe(const uint8_t* data, size_t data_len,
+                                  int* out_width, int* out_height,
+                                  char* out_ext, size_t out_ext_len,
+                                  char* out_error, size_t out_error_len);
+WUFFS_IMG_API int wuffs_img_probe_jpeg(const uint8_t* data, size_t data_len,
+                                       int* out_width, int* out_height);
+WUFFS_IMG_API int wuffs_img_probe_png(const uint8_t* data, size_t data_len,
+                                      int* out_width, int* out_height);
+WUFFS_IMG_API int wuffs_img_probe_gif(const uint8_t* data, size_t data_len,
+                                      int* out_width, int* out_height);
 
 #ifdef __cplusplus
 }  // extern "C"
