@@ -1,0 +1,13 @@
+name: verify-actions
+
+on:
+  push:
+    branches:
+      - '**'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: windows-2025
+    steps:
+      - run: echo OK && ver && echo %DATE% %TIME%
