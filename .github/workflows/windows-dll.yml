@@ -2,13 +2,14 @@ name: build-windows-dll
 
 on:
   push:
-    branches: [ main, master ]
+    branches:
+      - '**'
   pull_request:
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2025
     steps:
       - name: Checkout
         uses: actions/checkout@v4
