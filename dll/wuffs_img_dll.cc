@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -896,7 +897,7 @@ extern "C" WUFFS_IMG_API int wuffs_img_probe(const uint8_t* data,
                                               size_t out_error_len) {
   if (!data || (data_len == 0) || !out_width || !out_height) {
     if (out_error && out_error_len) {
-      _snprintf(out_error, out_error_len, "invalid arguments");
+      snprintf(out_error, out_error_len, "%s", "invalid arguments");
     }
     return -1;
   }
@@ -914,32 +915,32 @@ extern "C" WUFFS_IMG_API int wuffs_img_probe(const uint8_t* data,
     guessed = "gif";
   }
   if (guessed && out_ext && out_ext_len) {
-    _snprintf(out_ext, out_ext_len, "%s", guessed);
+    snprintf(out_ext, out_ext_len, "%s", guessed);
   }
 
   int r;
   // Try explicit PNG
   r = wuffs_img_probe_png(data, data_len, out_width, out_height);
   if (r == 0) {
-    if (out_ext && out_ext_len) _snprintf(out_ext, out_ext_len, "%s", "png");
+    if (out_ext && out_ext_len) snprintf(out_ext, out_ext_len, "%s", "png");
     return 0;
   }
   // JPEG
   r = wuffs_img_probe_jpeg(data, data_len, out_width, out_height);
   if (r == 0) {
-    if (out_ext && out_ext_len) _snprintf(out_ext, out_ext_len, "%s", "jpeg");
+    if (out_ext && out_ext_len) snprintf(out_ext, out_ext_len, "%s", "jpeg");
     return 0;
   }
   // GIF
   r = wuffs_img_probe_gif(data, data_len, out_width, out_height);
   if (r == 0) {
-    if (out_ext && out_ext_len) _snprintf(out_ext, out_ext_len, "%s", "gif");
+    if (out_ext && out_ext_len) snprintf(out_ext, out_ext_len, "%s", "gif");
     return 0;
   }
 
   // If reaching here, none succeeded. Provide a generic error.
   if (out_error && out_error_len) {
-    _snprintf(out_error, out_error_len, "unsupported or corrupt image format");
+    snprintf(out_error, out_error_len, "%s", "unsupported or corrupt image format");
   }
   return -2;
 }
