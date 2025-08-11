@@ -1481,7 +1481,6 @@ extern "C" WUFFS_IMG_API int wuffs_img_decode_auto_bgra_alloc(
       size_t bytes = (size_t)w * (size_t)h * 4u; uint8_t* dst = (uint8_t*)malloc(bytes); if (!dst) { snprintf(errbuf, sizeof errbuf, "png: oom"); return -5; }
       src = wuffs_base__ptr_u8__reader((uint8_t*)data, data_len, true);
       wuffs_base__pixel_buffer pb{}; if (wuffs_base__pixel_buffer__set_interleaved(&pb, &ic.pixcfg, wuffs_base__make_table_u8(dst, (size_t)w*4u, (size_t)h, (size_t)w*4u), wuffs_base__empty_slice_u8()).repr) { free(dst); snprintf(errbuf, sizeof errbuf, "png: set_interleaved failed"); return -6; }
-      wuffs_base__frame_config fc{}; st = wuffs_png__decoder__decode_frame_config(&dec, &fc, &src); if (st.repr && (st.repr != wuffs_base__note__end_of_data)) { free(dst); snprintf(errbuf, sizeof errbuf, "png: %s", wuffs_base__status__message(&st)); return -7; }
       wuffs_base__range_ii_u64 wr = wuffs_png__decoder__workbuf_len(&dec); size_t wl = (size_t)wr.min_incl; uint8_t* wb = wl ? (uint8_t*)malloc(wl) : nullptr;
       wuffs_base__status df = wuffs_png__decoder__decode_frame(&dec, &pb, &src, WUFFS_BASE__PIXEL_BLEND__SRC, wuffs_base__make_slice_u8(wb, wl), NULL);
       if (wb) free(wb); if (df.repr) { free(dst); snprintf(errbuf, sizeof errbuf, "png: %s", wuffs_base__status__message(&df)); return -8; }
@@ -1498,7 +1497,6 @@ extern "C" WUFFS_IMG_API int wuffs_img_decode_auto_bgra_alloc(
       size_t bytes = (size_t)w * (size_t)h * 4u; uint8_t* dst = (uint8_t*)malloc(bytes); if (!dst) { snprintf(errbuf, sizeof errbuf, "jpeg: oom"); return -5; }
       src = wuffs_base__ptr_u8__reader((uint8_t*)data, data_len, true);
       wuffs_base__pixel_buffer pb{}; if (wuffs_base__pixel_buffer__set_interleaved(&pb, &ic.pixcfg, wuffs_base__make_table_u8(dst, (size_t)w*4u, (size_t)h, (size_t)w*4u), wuffs_base__empty_slice_u8()).repr) { free(dst); snprintf(errbuf, sizeof errbuf, "jpeg: set_interleaved failed"); return -6; }
-      wuffs_base__frame_config fc{}; st = wuffs_jpeg__decoder__decode_frame_config(&dec, &fc, &src); if (st.repr && (st.repr != wuffs_base__note__end_of_data)) { free(dst); snprintf(errbuf, sizeof errbuf, "jpeg: %s", wuffs_base__status__message(&st)); return -7; }
       wuffs_base__range_ii_u64 wr = wuffs_jpeg__decoder__workbuf_len(&dec); size_t wl = (size_t)wr.min_incl; uint8_t* wb = wl ? (uint8_t*)malloc(wl) : nullptr;
       wuffs_base__status df = wuffs_jpeg__decoder__decode_frame(&dec, &pb, &src, WUFFS_BASE__PIXEL_BLEND__SRC, wuffs_base__make_slice_u8(wb, wl), NULL);
       if (wb) free(wb); if (df.repr) { free(dst); snprintf(errbuf, sizeof errbuf, "jpeg: %s", wuffs_base__status__message(&df)); return -8; }
@@ -1544,7 +1542,6 @@ extern "C" WUFFS_IMG_API int wuffs_img_decode_auto_bgra_alloc(
       size_t bytes = (size_t)w * (size_t)h * 4u; uint8_t* dst = (uint8_t*)malloc(bytes); if (!dst) { snprintf(errbuf, sizeof errbuf, "webp: oom"); return -5; }
       src = wuffs_base__ptr_u8__reader((uint8_t*)data, data_len, true);
       wuffs_base__pixel_buffer pb{}; if (wuffs_base__pixel_buffer__set_interleaved(&pb, &ic.pixcfg, wuffs_base__make_table_u8(dst, (size_t)w*4u, (size_t)h, (size_t)w*4u), wuffs_base__empty_slice_u8()).repr) { free(dst); snprintf(errbuf, sizeof errbuf, "webp: set_interleaved failed"); return -6; }
-      wuffs_base__frame_config fc{}; st = wuffs_webp__decoder__decode_frame_config(&dec, &fc, &src); if (st.repr && (st.repr != wuffs_base__note__end_of_data)) { free(dst); snprintf(errbuf, sizeof errbuf, "webp: %s", wuffs_base__status__message(&st)); return -7; }
       wuffs_base__range_ii_u64 wr = wuffs_webp__decoder__workbuf_len(&dec); size_t wl = (size_t)wr.min_incl; uint8_t* wb = wl ? (uint8_t*)malloc(wl) : nullptr;
       wuffs_base__status df = wuffs_webp__decoder__decode_frame(&dec, &pb, &src, WUFFS_BASE__PIXEL_BLEND__SRC, wuffs_base__make_slice_u8(wb, wl), NULL);
       if (wb) free(wb); if (df.repr) { free(dst); snprintf(errbuf, sizeof errbuf, "webp: %s", wuffs_base__status__message(&df)); return -8; }
@@ -1561,7 +1558,6 @@ extern "C" WUFFS_IMG_API int wuffs_img_decode_auto_bgra_alloc(
       size_t bytes = (size_t)w * (size_t)h * 4u; uint8_t* dst = (uint8_t*)malloc(bytes); if (!dst) { snprintf(errbuf, sizeof errbuf, "bmp: oom"); return -5; }
       src = wuffs_base__ptr_u8__reader((uint8_t*)data, data_len, true);
       wuffs_base__pixel_buffer pb{}; if (wuffs_base__pixel_buffer__set_interleaved(&pb, &ic.pixcfg, wuffs_base__make_table_u8(dst, (size_t)w*4u, (size_t)h, (size_t)w*4u), wuffs_base__empty_slice_u8()).repr) { free(dst); snprintf(errbuf, sizeof errbuf, "bmp: set_interleaved failed"); return -6; }
-      wuffs_base__frame_config fc{}; st = wuffs_bmp__decoder__decode_frame_config(&dec, &fc, &src); if (st.repr && (st.repr != wuffs_base__note__end_of_data)) { free(dst); snprintf(errbuf, sizeof errbuf, "bmp: %s", wuffs_base__status__message(&st)); return -7; }
       wuffs_base__range_ii_u64 wr = wuffs_bmp__decoder__workbuf_len(&dec); size_t wl = (size_t)wr.min_incl; uint8_t* wb = wl ? (uint8_t*)malloc(wl) : nullptr;
       wuffs_base__status df = wuffs_bmp__decoder__decode_frame(&dec, &pb, &src, WUFFS_BASE__PIXEL_BLEND__SRC, wuffs_base__make_slice_u8(wb, wl), NULL);
       if (wb) free(wb); if (df.repr) { free(dst); snprintf(errbuf, sizeof errbuf, "bmp: %s", wuffs_base__status__message(&df)); return -8; }
