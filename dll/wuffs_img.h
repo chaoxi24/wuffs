@@ -206,7 +206,9 @@ WUFFS_IMG_API int wuffs_img_decode_webp_rgba_into(
 
 // Probes (width/height only)
 WUFFS_IMG_API int wuffs_img_probe(const uint8_t* data, size_t data_len,
-                                  int* out_width, int* out_height);
+                                  int* out_width, int* out_height,
+                                  char* out_ext, size_t out_ext_len,
+                                  char* out_error, size_t out_error_len);
 WUFFS_IMG_API int wuffs_img_probe_jpeg(const uint8_t* data, size_t data_len,
                                        int* out_width, int* out_height);
 WUFFS_IMG_API int wuffs_img_probe_png(const uint8_t* data, size_t data_len,

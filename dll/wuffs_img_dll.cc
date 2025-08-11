@@ -889,23 +889,58 @@ static inline bool has_gif_magic(const uint8_t* p, size_t n) {
 extern "C" WUFFS_IMG_API int wuffs_img_probe(const uint8_t* data,
                                               size_t data_len,
                                               int* out_width,
-                                              int* out_height) {
+                                              int* out_height,
+                                              char* out_ext,
+                                              size_t out_ext_len,
+                                              char* out_error,
+                                              size_t out_error_len) {
   if (!data || (data_len == 0) || !out_width || !out_height) {
+    if (out_error && out_error_len) {
+      _snprintf(out_error, out_error_len, "invalid arguments");
+    }
     return -1;
   }
+  if (out_ext && out_ext_len) out_ext[0] = '\0';
+  if (out_error && out_error_len) out_error[0] = '\0';
+
   const uint8_t* p = data;
   size_t n = data_len;
+  const char* guessed = NULL;
   if (has_png_magic(p, n)) {
-    return wuffs_img_probe_png(data, data_len, out_width, out_height);
+    guessed = "png";
   } else if (has_jpeg_magic(p, n)) {
-    return wuffs_img_probe_jpeg(data, data_len, out_width, out_height);
+    guessed = "jpeg";
   } else if (has_gif_magic(p, n)) {
-    return wuffs_img_probe_gif(data, data_len, out_width, out_height);
+    guessed = "gif";
   }
-  // Fallback: try in order.
-  if (wuffs_img_probe_png(data, data_len, out_width, out_height) == 0) return 0;
-  if (wuffs_img_probe_jpeg(data, data_len, out_width, out_height) == 0) return 0;
-  if (wuffs_img_probe_gif(data, data_len, out_width, out_height) == 0) return 0;
+  if (guessed && out_ext && out_ext_len) {
+    _snprintf(out_ext, out_ext_len, "%s", guessed);
+  }
+
+  int r;
+  // Try explicit PNG
+  r = wuffs_img_probe_png(data, data_len, out_width, out_height);
+  if (r == 0) {
+    if (out_ext && out_ext_len) _snprintf(out_ext, out_ext_len, "%s", "png");
+    return 0;
+  }
+  // JPEG
+  r = wuffs_img_probe_jpeg(data, data_len, out_width, out_height);
+  if (r == 0) {
+    if (out_ext && out_ext_len) _snprintf(out_ext, out_ext_len, "%s", "jpeg");
+    return 0;
+  }
+  // GIF
+  r = wuffs_img_probe_gif(data, data_len, out_width, out_height);
+  if (r == 0) {
+    if (out_ext && out_ext_len) _snprintf(out_ext, out_ext_len, "%s", "gif");
+    return 0;
+  }
+
+  // If reaching here, none succeeded. Provide a generic error.
+  if (out_error && out_error_len) {
+    _snprintf(out_error, out_error_len, "unsupported or corrupt image format");
+  }
   return -2;
 }
 
